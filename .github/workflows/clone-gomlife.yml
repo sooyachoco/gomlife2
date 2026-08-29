@@ -36,29 +36,28 @@ jobs:
                   shutil.copy2(item, target)
           PY
 
-      - name: Add community button safely
+      - name: Add community button in Gomlife style
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
-          if 'class="community-card"' in s:
-              print('Community button already exists')
-              raise SystemExit(0)
-          button = '''\n<section class="community-card" aria-label="우리 커뮤니티">\n  <a href="https://community.sooyachoco.workers.dev" class="community-link">\n    <div class="community-copy">\n      <span class="community-kicker">TOGETHER</span>\n      <strong>우리 커뮤니티</strong>\n      <span>오늘 하루 어땠어?</span>\n    </div>\n    <span class="community-arrow" aria-hidden="true">→</span>\n  </a>\n</section>\n'''
-          css = '''\n<style>\n.community-card{margin:28px 0 42px}.community-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 20px;border-radius:24px;background:var(--ivory,#fffdf7);border:1px solid rgba(114,128,111,.18);box-shadow:0 8px 24px rgba(47,57,47,.06);text-decoration:none;color:var(--ink,#2f392f)}.community-copy{display:flex;flex-direction:column;gap:5px}.community-kicker{font-size:10px;letter-spacing:.16em;color:var(--muted,#72806f)}.community-copy strong{font-size:20px;line-height:1.2}.community-copy>span:last-child{font-size:13px;color:var(--muted,#72806f)}.community-arrow{font-size:24px;color:var(--muted,#72806f)}@media(max-width:600px){.community-card{margin:24px 0 32px}.community-link{padding:19px 18px;border-radius:21px}.community-copy strong{font-size:18px}}\n</style>\n'''
-          if '</body>' in s:
-              s = s.replace('</body>', button + '</body>', 1)
-          elif '</html>' in s:
-              s = s.replace('</html>', button + '</html>', 1)
-          else:
-              s += button
-          if '</head>' in s:
-              s = s.replace('</head>', css + '</head>', 1)
-          else:
-              s = css + s
+          s = re.sub(r'\s*<section class="community-card"[\s\S]*?</section>\s*', '\n', s)
+          s = re.sub(r'\s*<style>\s*\.community-card\{[\s\S]*?</style>\s*', '\n', s)
+          button = '''\n<div class="community-entry" aria-label="우리 커뮤니티">\n  <a href="https://community.sooyachoco.workers.dev" class="community-entry-link">\n    <span>우리 커뮤니티</span><span aria-hidden="true">›</span>\n  </a>\n</div>\n'''
+          css = '''\n<style>\n.community-entry{width:100%;box-sizing:border-box;margin:18px 0 28px}\n.community-entry-link{display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;width:100%;padding:15px 16px;border:1px solid rgba(80,80,80,.10);border-radius:14px;background:rgba(255,255,255,.72);color:inherit;text-decoration:none;font:inherit;line-height:1.3;-webkit-tap-highlight-color:transparent}\n.community-entry-link span:first-child{font-size:.95em;font-weight:500}\n.community-entry-link span:last-child{font-size:1.35em;line-height:1;opacity:.45}\n.community-entry-link:active{transform:scale(.99)}\n@media(max-width:600px){.community-entry{margin:16px 0 24px}.community-entry-link{padding:14px 15px;border-radius:13px}}\n</style>\n'''
+          if 'class="community-entry"' not in s:
+              pos = s.lower().rfind('</body>')
+              if pos >= 0:
+                  s = s[:pos] + button + s[pos:]
+              else:
+                  s += button
+          pos = s.lower().rfind('</head>')
+          if pos >= 0 and '.community-entry{' not in s:
+              s = s[:pos] + css + s[pos:]
           p.write_text(s, encoding='utf-8')
-          print('Community button added')
+          print('Community entry updated')
           PY
 
       - name: Commit synced site
@@ -70,5 +69,5 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Sync Gomlife without cup and add community button"
+          git commit -m "Match community button to Gomlife style"
           git push
