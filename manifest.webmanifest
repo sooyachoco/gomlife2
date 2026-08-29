@@ -1,0 +1,17 @@
+{
+  "name": "안녕? 곰지연씨",
+  "short_name": "Gomlife",
+  "start_url": "/Gomlife/",
+  "scope": "/Gomlife/",
+  "display": "standalone",
+  "background_color": "#FBF7ED",
+  "theme_color": "#FBF7ED",
+  "icons": [
+    {
+      "src": "./gomlife-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
