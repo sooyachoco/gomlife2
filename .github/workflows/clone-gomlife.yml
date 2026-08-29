@@ -36,7 +36,7 @@ jobs:
                   shutil.copy2(item, target)
           PY
 
-      - name: Add community card by cloning an existing Gomlife card
+      - name: Add community card by cloning the Gomlife diary card
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -49,14 +49,14 @@ jobs:
           (function(){
             function add(){
               const nodes=[...document.querySelectorAll('body *')];
-              const label=nodes.find(el=>el.children.length===0&&el.textContent.trim()==='곰레시피');
-              if(!label||document.querySelector('[data-gomlife-community]')) return;
+              const label=nodes.find(el=>el.children.length===0 && /일기/.test(el.textContent.trim()));
+              if(!label || document.querySelector('[data-gomlife-community]')) return;
               let card=label;
-              for(let i=0;i<8&&card.parentElement;i++){
-                const p=card.parentElement;
-                const same=[...p.children].filter(x=>x.tagName===card.tagName&&x.className===card.className);
+              for(let i=0;i<10 && card.parentElement;i++){
+                const parent=card.parentElement;
+                const same=[...parent.children].filter(x=>x.tagName===card.tagName && x.className===card.className);
                 if(same.length>=2) break;
-                card=p;
+                card=parent;
               }
               const clone=card.cloneNode(true);
               clone.setAttribute('data-gomlife-community','true');
@@ -64,13 +64,13 @@ jobs:
               const texts=[]; while(walker.nextNode()) texts.push(walker.currentNode);
               texts.forEach(n=>{
                 const t=n.nodeValue.trim();
-                if(t==='곰레시피') n.nodeValue=n.nodeValue.replace('곰레시피','우리 커뮤니티');
-                else if(t==='COOK') n.nodeValue=n.nodeValue.replace('COOK','COMMUNITY');
-                else if(t==='맛있는 레시피를 모아요') n.nodeValue=n.nodeValue.replace('맛있는 레시피를 모아요','오늘 하루 어땠어?');
+                if(/일기/.test(t)) n.nodeValue=n.nodeValue.replace(t,'우리 커뮤니티');
+                else if(t==='오늘의 기록') n.nodeValue=n.nodeValue.replace('오늘의 기록','오늘 하루 어땠어?');
+                else if(t==='매일의 이야기를 기록해요') n.nodeValue=n.nodeValue.replace('매일의 이야기를 기록해요','오늘 하루 어땠어?');
               });
               clone.querySelectorAll('a').forEach(a=>a.href='https://community.sooyachoco.workers.dev');
               if(clone.tagName==='A') clone.href='https://community.sooyachoco.workers.dev';
-              card.parentElement.insertBefore(clone,card.nextSibling);
+              card.parentElement.appendChild(clone);
             }
             if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',add); else add();
           })();
@@ -79,7 +79,7 @@ jobs:
           if pos>=0: s=s[:pos]+script+'\n'+s[pos:]
           else: s+=script
           p.write_text(s,encoding='utf-8')
-          print('Community card clone script added')
+          print('Community card now clones the Gomlife diary card')
           PY
 
       - name: Commit synced site
@@ -91,5 +91,5 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Clone Gomlife card for community"
+          git commit -m "Clone Gomlife diary card for community"
           git push
