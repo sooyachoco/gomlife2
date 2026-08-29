@@ -19,6 +19,7 @@ jobs:
 
       - name: Copy original Gomlife except cup
         run: |
+          rm -rf /tmp/gomlife
           git clone --depth 1 https://github.com/sooyachoco/Gomlife.git /tmp/gomlife
           python3 - <<'PY'
           from pathlib import Path
@@ -35,36 +36,29 @@ jobs:
                   shutil.copy2(item, target)
           PY
 
-      - name: Add community button
+      - name: Add community button safely
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
-          marker = '    </main>'
-          button = '''
-      <section class="community-card" aria-label="우리 커뮤니티">
-        <a href="https://community.sooyachoco.workers.dev" class="community-link">
-          <div class="community-copy">
-            <span class="community-kicker">TOGETHER</span>
-            <strong>우리 커뮤니티</strong>
-            <span>오늘 하루 어땠어?</span>
-          </div>
-          <span class="community-arrow" aria-hidden="true">→</span>
-        </a>
-      </section>
-'''
-          css = '''
-<style>
-.community-card{margin:28px 0 42px}.community-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 20px;border-radius:24px;background:var(--ivory,#fffdf7);border:1px solid rgba(114,128,111,.18);box-shadow:0 8px 24px rgba(47,57,47,.06);text-decoration:none;color:var(--ink,#2f392f)}.community-copy{display:flex;flex-direction:column;gap:5px}.community-kicker{font-size:10px;letter-spacing:.16em;color:var(--muted,#72806f)}.community-copy strong{font-size:20px;line-height:1.2}.community-copy>span:last-child{font-size:13px;color:var(--muted,#72806f)}.community-arrow{font-size:24px;color:var(--muted,#72806f)}@media(max-width:600px){.community-card{margin:24px 0 32px}.community-link{padding:19px 18px;border-radius:21px}.community-copy strong{font-size:18px}}
-</style>
-'''
-          if 'class="community-card"' not in s:
-              if marker not in s:
-                  raise SystemExit('Could not find main closing marker')
+          if 'class="community-card"' in s:
+              print('Community button already exists')
+              raise SystemExit(0)
+          button = '''\n<section class="community-card" aria-label="우리 커뮤니티">\n  <a href="https://community.sooyachoco.workers.dev" class="community-link">\n    <div class="community-copy">\n      <span class="community-kicker">TOGETHER</span>\n      <strong>우리 커뮤니티</strong>\n      <span>오늘 하루 어땠어?</span>\n    </div>\n    <span class="community-arrow" aria-hidden="true">→</span>\n  </a>\n</section>\n'''
+          css = '''\n<style>\n.community-card{margin:28px 0 42px}.community-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 20px;border-radius:24px;background:var(--ivory,#fffdf7);border:1px solid rgba(114,128,111,.18);box-shadow:0 8px 24px rgba(47,57,47,.06);text-decoration:none;color:var(--ink,#2f392f)}.community-copy{display:flex;flex-direction:column;gap:5px}.community-kicker{font-size:10px;letter-spacing:.16em;color:var(--muted,#72806f)}.community-copy strong{font-size:20px;line-height:1.2}.community-copy>span:last-child{font-size:13px;color:var(--muted,#72806f)}.community-arrow{font-size:24px;color:var(--muted,#72806f)}@media(max-width:600px){.community-card{margin:24px 0 32px}.community-link{padding:19px 18px;border-radius:21px}.community-copy strong{font-size:18px}}\n</style>\n'''
+          if '</body>' in s:
+              s = s.replace('</body>', button + '</body>', 1)
+          elif '</html>' in s:
+              s = s.replace('</html>', button + '</html>', 1)
+          else:
+              s += button
+          if '</head>' in s:
               s = s.replace('</head>', css + '</head>', 1)
-              s = s.replace(marker, button + marker, 1)
-              p.write_text(s, encoding='utf-8')
+          else:
+              s = css + s
+          p.write_text(s, encoding='utf-8')
+          print('Community button added')
           PY
 
       - name: Commit synced site
@@ -72,6 +66,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet && exit 0
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git commit -m "Sync Gomlife without cup and add community button"
           git push
