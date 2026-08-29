@@ -1,39 +1,60 @@
-name: Clone Gomlife
+name: Sync Gomlife
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  clone:
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Clone source
-        run: git clone --depth 1 https://github.com/sooyachoco/Gomlife.git /tmp/gomlife
-      - name: Copy source
+      - name: Checkout gomlife2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Copy original Gomlife
         run: |
-          cp -a /tmp/gomlife/. .
-          mkdir -p .github/workflows
-          cp /tmp/gomlife/.github/workflows/clone-gomlife.yml .github/workflows/clone-gomlife.yml 2>/dev/null || true
-      - name: Add community link
+          git clone --depth 1 https://github.com/sooyachoco/Gomlife.git /tmp/gomlife
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          src = Path('/tmp/gomlife')
+          dst = Path('.')
+          for item in src.iterdir():
+              if item.name in {'.git', '.github'}:
+                  continue
+              target = dst / item.name
+              if item.is_dir():
+                  shutil.copytree(item, target, dirs_exist_ok=True)
+              else:
+                  shutil.copy2(item, target)
+          PY
+
+      - name: Add community button
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          if 'community.sooyachoco.workers.dev' not in s:
-              x='''<div id="gomlife-community-link" style="max-width:760px;margin:48px auto 24px;padding:0 20px;box-sizing:border-box"><a href="https://community.sooyachoco.workers.dev" style="display:block;text-decoration:none;padding:20px 24px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid rgba(0,0,0,.06);box-shadow:0 8px 24px rgba(0,0,0,.06);text-align:center;color:inherit"><div style="font-size:24px">💌</div><div style="font-weight:700;font-size:18px;margin-top:6px">우리 커뮤니티</div><div style="font-size:13px;opacity:.62;margin-top:5px">오늘 하루 어땠어?</div></a></div>'''
-              i=s.lower().rfind('</body>')
-              s=s[:i]+x+s[i:] if i>=0 else s+x
-              p.write_text(s,encoding='utf-8')
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '    </main>'
+          button = '''\n      <section class="community-card" aria-label="우리 커뮤니티">\n        <a href="https://community.sooyachoco.workers.dev" class="community-link">\n          <div class="community-copy">\n            <span class="community-kicker">TOGETHER</span>\n            <strong>우리 커뮤니티</strong>\n            <span>오늘 하루 어땠어?</span>\n          </div>\n          <span class="community-arrow" aria-hidden="true">→</span>\n        </a>\n      </section>\n'''
+          css = '''\n<style>\n.community-card{margin:28px 0 42px}.community-link{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 20px;border-radius:24px;background:var(--ivory,#fffdf7);border:1px solid rgba(114,128,111,.18);box-shadow:0 8px 24px rgba(47,57,47,.06);text-decoration:none;color:var(--ink,#2f392f)}.community-copy{display:flex;flex-direction:column;gap:5px}.community-kicker{font-size:10px;letter-spacing:.16em;color:var(--muted,#72806f)}.community-copy strong{font-size:20px;line-height:1.2}.community-copy>span:last-child{font-size:13px;color:var(--muted,#72806f)}.community-arrow{font-size:24px;color:var(--muted,#72806f)}@media(max-width:600px){.community-card{margin:24px 0 32px}.community-link{padding:19px 18px;border-radius:21px}.community-copy strong{font-size:18px}}\n</style>\n'''
+          if 'class="community-card"' not in s:
+              s = s.replace('</head>', css + '</head>')
+              s = s.replace(marker, button + marker, 1)
+              p.write_text(s, encoding='utf-8')
           PY
-      - name: Commit
+
+      - name: Commit synced site
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Clone Gomlife and add community button" || true
+          git diff --cached --quiet && exit 0
+          git commit -m "Sync Gomlife and add community button"
           git push
