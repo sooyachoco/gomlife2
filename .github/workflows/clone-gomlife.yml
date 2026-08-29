@@ -1,0 +1,39 @@
+name: Clone Gomlife
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone source
+        run: git clone --depth 1 https://github.com/sooyachoco/Gomlife.git /tmp/gomlife
+      - name: Copy source
+        run: |
+          cp -a /tmp/gomlife/. .
+          mkdir -p .github/workflows
+          cp /tmp/gomlife/.github/workflows/clone-gomlife.yml .github/workflows/clone-gomlife.yml 2>/dev/null || true
+      - name: Add community link
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'community.sooyachoco.workers.dev' not in s:
+              x='''<div id="gomlife-community-link" style="max-width:760px;margin:48px auto 24px;padding:0 20px;box-sizing:border-box"><a href="https://community.sooyachoco.workers.dev" style="display:block;text-decoration:none;padding:20px 24px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid rgba(0,0,0,.06);box-shadow:0 8px 24px rgba(0,0,0,.06);text-align:center;color:inherit"><div style="font-size:24px">💌</div><div style="font-weight:700;font-size:18px;margin-top:6px">우리 커뮤니티</div><div style="font-size:13px;opacity:.62;margin-top:5px">오늘 하루 어땠어?</div></a></div>'''
+              i=s.lower().rfind('</body>')
+              s=s[:i]+x+s[i:] if i>=0 else s+x
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Clone Gomlife and add community button" || true
+          git push
