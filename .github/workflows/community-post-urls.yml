@@ -1,0 +1,82 @@
+name: Community post URLs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'community/index.html'
+      - '.github/workflows/community-post-urls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  add-post-urls:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore: apply community post URLs') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Add stable post URLs and share controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('community/index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # Add styling once.
+          if '.post-share' not in s:
+              marker = '</style>'
+              css = '''\n.post-share{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 9px;border:1px solid #eadbd0;border-radius:10px;background:#fffaf6;color:#9a8172;font-size:12px;font-weight:800}.post-share:active{transform:scale(.97)}.post.deep-linked{outline:2px solid #f3b0ae;box-shadow:0 10px 28px rgba(239,133,139,.18)}'''
+              s = s.replace(marker, css + marker, 1)
+
+          # Give every static post a stable id. Existing ids are preserved.
+          counter = 0
+          def add_id(m):
+              nonlocal counter
+              counter += 1
+              tag = m.group(0)
+              if re.search(r'\sid=["\']post-[^"\']+["\']', tag):
+                  return tag
+              return tag[:-1] + f' id="post-{counter}">'
+          s = re.sub(r'<article\b[^>]*\bclass=["\']post["\'][^>]*>', add_id, s, flags=re.I)
+
+          # Add a share button to each post once.
+          def add_share(m):
+              article = m.group(0)
+              if 'post-share' in article:
+                  return article
+              pid = re.search(r'id=["\'](post-[^"\']+)["\']', article)
+              if not pid:
+                  return article
+              button = f'<button class="post-share" type="button" data-post-id="{pid.group(1)}" aria-label="게시물 링크 공유">↗ 공유</button>'
+              # Put it at the end of the meta row.
+              article = article.replace('</div></article>', button + '</div></article>', 1)
+              return article
+          s = re.sub(r'<article\b[^>]*class=["\']post["\'][\s\S]*?</article>', add_share, s, flags=re.I)
+
+          # Add the URL/share behavior once.
+          if 'community-post-url-script' not in s:
+              script = '''\n<script id="community-post-url-script">\n(()=>{\n  const base=location.pathname;\n  const posts=[...document.querySelectorAll('.post[id^="post-"]')];\n  const urlFor=p=>`${location.origin}${base}?post=${encodeURIComponent(p.id.replace(/^post-/,'#'))}`;\n  async function share(p){\n    const url=urlFor(p);\n    try{\n      if(navigator.share){await navigator.share({title:p.querySelector('.title')?.textContent?.trim()||'우리 둘의 이야기',url});}\n      else{await navigator.clipboard.writeText(url);alert('게시물 링크를 복사했어요.');}\n    }catch(e){\n      if(e?.name!=='AbortError'){try{await navigator.clipboard.writeText(url);alert('게시물 링크를 복사했어요.')}catch(_){}}\n    }\n  }\n  document.querySelectorAll('.post-share').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();const p=document.getElementById(b.dataset.postId);if(p)share(p)}));\n  const q=new URLSearchParams(location.search).get('post');\n  if(q){\n    const id=q.startsWith('#')?`post-${q.slice(1)}`:`post-${q}`;\n    const p=document.getElementById(id);\n    if(p){setTimeout(()=>{p.classList.add('deep-linked');p.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>p.classList.remove('deep-linked'),2400)},120)}\n  }\n})();\n</script>\n'''
+              s = s.replace('</body>', script + '</body>', 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit patched page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add community/index.html
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "chore: apply community post URLs"
+            git push origin main
+          fi
